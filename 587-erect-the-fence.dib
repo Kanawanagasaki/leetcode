@@ -1,0 +1,241 @@
+#!markdown
+
+[587. Erect the Fence](https://leetcode.com/problems/erect-the-fence/)
+
+#!csharp
+
+using System.Drawing;
+using System.IO;
+
+public class Solution
+{
+    private static int _i = 0;
+
+    private bool LineLineIntersection(int[] ap0, int[] ap1, int[] bp0, int[] bp1, out double[] res)
+    {
+        double a1 = ap1[1] - ap0[1];
+        double b1 = ap0[0] - ap1[0];
+        double c1 = a1 * ap0[0] + b1 * ap0[1];
+ 
+        double a2 = bp1[1] - bp0[1];
+        double b2 = bp0[0] - bp1[0];
+        double c2 = a2 * bp0[0] + b2 * bp0[1];
+ 
+        double determinant = a1 * b2 - a2 * b1;
+ 
+        if (determinant == 0)
+        {
+            res = new double[] { double.MaxValue, double.MaxValue };
+            return false;
+        }
+        else
+        {
+            double x = (b2 * c1 - b1 * c2) / determinant;
+            double y = (a1 * c2 - a2 * c1) / determinant;
+            res = new double[] { x, y };
+            return true;
+        }
+    }
+
+    private void Render(int[][] trees, List<int[]> shape, List<int[]> lines = null, double[] point = null)
+    {
+        int pixelSize = 50;
+        var directory = "587-erect-the-fence-visualization";
+        if(!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        var maxX = trees.Select(x => x[0]).Max();
+        var maxY = trees.Select(x => x[1]).Max();
+        var width = maxX * pixelSize + pixelSize * 3;
+        var height = maxY * pixelSize + pixelSize * 3;
+        using var btm = new Bitmap(width, height);
+        using var g = Graphics.FromImage(btm);
+        g.FillRectangle(Brushes.Black, 0, 0, width, height);
+
+        for(int i = 1; i <= maxX + 2; i++)
+            g.DrawLine(Pens.DimGray, i * pixelSize, 0, i * pixelSize, height);
+
+        for(int i = 1; i <= maxY + 2; i++)
+            g.DrawLine(Pens.DimGray, 0, i * pixelSize, width, i * pixelSize);
+
+        foreach(var pos in trees)
+            g.FillEllipse(Brushes.Green, pixelSize * 1.25f + pos[0] * pixelSize, pixelSize * 1.25f + pos[1] * pixelSize, pixelSize / 2, pixelSize / 2);
+
+        var font = new Font(FontFamily.GenericMonospace, pixelSize / 2);
+        for(int i = 0; i < shape.Count; i++)
+        {
+            g.DrawString($"{i}", font, Brushes.White, shape[i][0] * pixelSize + pixelSize, shape[i][1] * pixelSize + pixelSize);
+            g.DrawLine(new Pen(Color.Red, 2),
+                shape[i][0] * pixelSize + pixelSize * 1.5f,
+                shape[i][1] * pixelSize + pixelSize * 1.5f,
+                shape[(i + 1) % shape.Count][0] * pixelSize + pixelSize * 1.5f,
+                shape[(i + 1) % shape.Count][1] * pixelSize + pixelSize * 1.5f);
+        }
+
+        if(point is not null)
+            g.DrawEllipse(Pens.Cyan, pixelSize * 1.4f + (float)point[0] * pixelSize, pixelSize * 1.4f + (float)point[1] * pixelSize, pixelSize * .2f, pixelSize * .2f);
+
+        if(lines is not null)
+            foreach(var line in lines)
+                g.DrawLine(new Pen(Color.Cyan, 2),
+                    line[0] * pixelSize + pixelSize * 1.5f,
+                    line[1] * pixelSize + pixelSize * 1.5f,
+                    line[2]  * pixelSize + pixelSize * 1.5f,
+                    line[3]  * pixelSize + pixelSize * 1.5f);
+
+        btm.Save(directory + $"/{_i:0000}.png", System.Drawing.Imaging.ImageFormat.Png);
+        _i++;
+    }
+    
+    public int[][] OuterTrees(int[][] trees)
+    {
+        var shape = new List<int[]>();
+        foreach(var tree in trees)
+        {
+            shape.Add(tree);
+            if(shape.Count < 4)
+                continue;
+            
+            for(int i = 0; i < 2 * shape.Count - 3; i++)
+            {
+                var indexA = i % (shape.Count - 1);
+                var indexB = indexA + 1;
+                var indexC = (shape.Count - 1) - i / (shape.Count - 1);
+                var indexD = (indexC + 1) % shape.Count;
+
+                var success = LineLineIntersection(shape[indexA], shape[indexB], shape[indexC], shape[indexD], out var intersection);
+                Render(trees,
+                    shape,
+                    new()
+                    {
+                        new[] { shape[indexA][0], shape[indexA][1], shape[indexB][0], shape[indexB][1] },
+                        new[] { shape[indexC][0], shape[indexC][1], shape[indexD][0], shape[indexD][1]}
+                    });
+
+                if(!success)
+                    continue;
+
+                var minX1 = Math.Min(shape[indexA][0], shape[indexB][0]);
+                var maxX1 = Math.Max(shape[indexA][0], shape[indexB][0]);
+                var minY1 = Math.Min(shape[indexA][1], shape[indexB][1]);
+                var maxY1 = Math.Max(shape[indexA][1], shape[indexB][1]);
+                var minX2 = Math.Min(shape[indexC][0], shape[indexD][0]);
+                var maxX2 = Math.Max(shape[indexC][0], shape[indexD][0]);
+                var minY2 = Math.Min(shape[indexC][1], shape[indexD][1]);
+                var maxY2 = Math.Max(shape[indexC][1], shape[indexD][1]);
+
+                var onLine1 = ((minX1 < intersection[0] && intersection[0] < maxX1) && (minY1 <= intersection[1] && intersection[1] <= maxY1)) ||
+                    ((minX1 <= intersection[0] && intersection[0] <= maxX1) && (minY1 < intersection[1] && intersection[1] < maxY1));
+                var onPoint1 = (shape[indexA][0] == intersection[0] && shape[indexA][1] == intersection[1]) || (shape[indexB][0] == intersection[0] && shape[indexB][1] == intersection[1]);
+
+                var onLine2 = ((minX2 < intersection[0] && intersection[0] < maxX2) && (minY2 <= intersection[1] && intersection[1] <= maxY2)) ||
+                    ((minX2 <= intersection[0] && intersection[0] <= maxX2) && (minY2 < intersection[1] && intersection[1] < maxY2));
+                var onPoint2 = (shape[indexC][0] == intersection[0] && shape[indexC][1] == intersection[1]) || (shape[indexD][0] == intersection[0] && shape[indexD][1] == intersection[1]);
+
+                if((onLine1 && (onLine2 || onPoint2)) || (onLine2 && (onLine1 || onPoint1)))
+                {
+                    Render(trees,
+                        shape,
+                        new()
+                        {
+                            new[] { shape[indexA][0], shape[indexA][1], shape[indexB][0], shape[indexB][1] },
+                            new[] { shape[indexC][0], shape[indexC][1], shape[indexD][0], shape[indexD][1]}
+                        },
+                        intersection);
+                    
+                    var buff = shape[indexB];
+                    shape[indexB] = shape[indexC];
+                    shape[indexC] = buff;
+                    i = -1;
+                }
+            }
+
+            var sumOfEdges = 0;
+            for(int i = 0; i < shape.Count; i++)
+                sumOfEdges += (shape[(i + 1) % shape.Count][0] - shape[i][0]) * (shape[(i + 1) % shape.Count][1] + shape[i][1]);
+            var isClockwise = sumOfEdges > 0;
+            
+            Render(trees, shape);
+
+            for(int i = 0; i < shape.Count; i++)
+            {
+                var pointA = shape[i];
+                var pointB = shape[(i + 1) % shape.Count];
+                var pointC = shape[(i + 2) % shape.Count];
+                
+                Render(trees,
+                    shape,
+                    new()
+                    {
+                        new[] { pointA[0], pointA[1], pointB[0], pointB[1] },
+                        new[] { pointB[0], pointB[1], pointC[0], pointC[1]}
+                    },
+                    new double[] { pointB[0], pointB[1] });
+
+                var vectorA = new double[] { pointA[0] - pointB[0], pointA[1] - pointB[1] };
+                var vectorB = new double[] { pointC[0] - pointB[0], pointC[1] - pointB[1] };
+
+                var crossProd = vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0];
+                if(isClockwise ? crossProd < 0 : crossProd > 0)
+                {
+                    shape.RemoveAt((i + 1) % shape.Count);
+                    i--;
+                }
+            }
+            
+            Render(trees, shape);
+        }
+
+        return shape.ToArray();
+    }
+}
+
+#!csharp
+
+var inputs = new string[]
+{
+    "[[1,1],[2,2],[2,0],[2,4],[3,3],[4,2]]",
+    "[[2,2],[4,2],[3,3],[2,0],[1,1],[2,4]]",
+    "[[1,2],[2,2],[4,2]]",
+    "[[3,7],[6,8],[7,8],[11,10],[4,3],[8,5],[7,13],[4,13]]"
+};
+var outputs = new string[]
+{
+    "[[1,1],[2,0],[3,3],[2,4],[4,2]]",
+    "[[1,1],[2,0],[3,3],[2,4],[4,2]]",
+    "[[4,2],[2,2],[1,2]]",
+    "[[3,7],[4,13],[11,10],[4,3],[8,5],[7,13]]"
+};
+
+for(int i = 0; i < inputs.Length; i++)
+{
+    var solution = new Solution();
+    var trees = System.Text.Json.JsonSerializer.Deserialize<int[][]>(inputs[i]);
+    var res = solution.OuterTrees(trees).OrderBy(x => (x[0] << 16) | x[1]).ToList();
+    var expected = System.Text.Json.JsonSerializer.Deserialize<List<int[]>>(outputs[i]).OrderBy(x => (x[0] << 16) | x[1]).ToList();
+    Console.WriteLine(string.Join(" ", res.Select(x => $"[{x[0]},{x[1]}]")));
+    Console.WriteLine(string.Join(" ", expected.Select(x => $"[{x[0]},{x[1]}]")));
+    while(res.Count > 0 && expected.Count > 0)
+    {
+        bool found = false;
+        for(int j = 0; j < expected.Count; j++)
+        {
+            for(int k = 0; k < res.Count; k++)
+            {
+                if(expected[j][0] == res[k][0] && expected[j][1] == res[k][1])
+                {
+                    expected.RemoveAt(j);
+                    res.RemoveAt(k);
+                    found = true;
+                    break;
+                }
+            }
+            if(found)
+                break;
+        }
+        if(!found)
+            break;
+    }
+    if(res.Count > 0 || expected.Count > 0)
+        Console.WriteLine("[TEST FAILED]");
+    Console.WriteLine();
+}
