@@ -9,7 +9,7 @@ public class Solution
             if (words[i] != target)
                 continue;
             var dist1 = Math.Abs(startIndex - i);
-            var dist2 = Math.Abs(Math.Abs(startIndex - i) - words.Length);
+            var dist2 = Math.Abs(dist1 - words.Length);
             ret = Math.Min(ret, Math.Min(dist1, dist2));
         }
 
